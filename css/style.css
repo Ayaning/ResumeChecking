@@ -343,6 +343,20 @@ table.matrix td.diag { background: repeating-linear-gradient(45deg, #f1f5f9, #f1
 }
 mark.hl { background: #fde047; color: #000; border-radius: 2px; padding: 0 1px; }
 
+/* ---- 原始附件预览 ---- */
+.file-actions { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin: 8px 0 12px; }
+.file-name { font-size: 12.5px; word-break: break-all; }
+.file-viewer {
+  width: 100%; height: 70vh; border: 1px solid var(--border);
+  border-radius: 8px; background: #fff; display: block;
+}
+.file-img { max-width: 100%; border: 1px solid var(--border); border-radius: 8px; display: block; }
+.file-txt {
+  background: #0f172a; color: #e2e8f0; border-radius: 8px; padding: 12px;
+  font-family: Consolas, "Courier New", monospace; font-size: 13px;
+  white-space: pre-wrap; word-break: break-word; height: 400px; overflow: auto; line-height: 1.7;
+}
+
 /* ---- resume info ---- */
 .info-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px 14px; }
 .info-item {

@@ -766,8 +766,76 @@
     if (c.note) meta += infoItem('备注', esc(c.note), 'full');
     $('#resume-info-meta').innerHTML = meta;
 
+    renderOriginalFile(c);
     $('#resume-info-text').textContent = c.rawText || '（暂无正文内容）';
     $('#resume-info-modal').hidden = false;
+  }
+
+  /* 在线预览 + 下载原始附件；历史数据无原件时提供解析文本下载 */
+  function renderOriginalFile(c) {
+    var box = $('#resume-info-original');
+    if (!box) return;
+    var url = c.fileUrl || (c.filePath ? Store.publicUrl(c.filePath) : '');
+    var html = '<div class="divider"><span>原始附件</span></div>';
+
+    if (!url) {
+      html += '<p class="muted">该记录没有原始附件（历史数据仅保留解析文本）。</p>' +
+        '<div class="file-actions"><button class="btn sm" id="resume-info-dltext">下载解析文本 (.txt)</button></div>';
+      box.innerHTML = html;
+      var b = $('#resume-info-dltext');
+      if (b) b.onclick = function () { downloadResumeText(c); };
+      return;
+    }
+
+    var name = c.fileName || c.srcFile || url.split('/').pop();
+    var ext = fileExtOf(name);
+    var type = (c.fileType || fileMime(name) || '').toLowerCase();
+    var dl = url + (url.indexOf('?') < 0 ? '?' : '&') + 'download';
+    var size = (c.fileSize != null) ? ' · ' + fmtSize(c.fileSize) : '';
+
+    html += '<div class="file-actions">' +
+      '<a class="btn sm" href="' + esc(url) + '" target="_blank" rel="noopener">在新窗口打开</a>' +
+      '<a class="btn sm primary" href="' + esc(dl) + '" download="' + esc(name) + '">下载原件</a>' +
+      '<span class="muted file-name">' + esc(name) + size + '</span>' +
+      '</div>';
+
+    if (ext === 'pdf' || type === 'application/pdf') {
+      html += '<iframe class="file-viewer" src="' + esc(url) + '" loading="lazy" title="原件预览"></iframe>';
+    } else if (type.indexOf('image/') === 0 || ['png', 'jpg', 'jpeg', 'gif', 'webp', 'bmp'].indexOf(ext) >= 0) {
+      html += '<img class="file-img" src="' + esc(url) + '" alt="原始附件">';
+    } else if (ext === 'txt' || type === 'text/plain') {
+      html += '<pre class="file-txt" id="resume-file-text">加载中…</pre>';
+    } else if (ext === 'doc' || ext === 'docx') {
+      html += '<iframe class="file-viewer" src="https://view.officeapps.live.com/op/embed.aspx?src=' +
+        encodeURIComponent(url) + '"></iframe>';
+    } else {
+      html += '<p class="muted">该格式暂不支持在线预览，请点击「下载原件」查看。</p>';
+    }
+
+    box.innerHTML = html;
+
+    var pre = $('#resume-info-filetext');
+    if (pre) {
+      fetch(url).then(function (r) { return r.text(); })
+        .then(function (t) { pre.textContent = t || '（空文件）'; })
+        .catch(function () { pre.textContent = '加载失败，请点击「下载原件」查看。'; });
+    }
+  }
+
+  function fmtSize(n) {
+    if (n == null) return '';
+    if (n < 1024) return n + ' B';
+    if (n < 1024 * 1024) return (n / 1024).toFixed(1) + ' KB';
+    return (n / 1024 / 1024).toFixed(2) + ' MB';
+  }
+
+  function downloadResumeText(c) {
+    var blob = new Blob([c.rawText || ''], { type: 'text/plain;charset=utf-8' });
+    var a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = (shortName(c) || 'resume') + '_解析文本.txt';
+    a.click();
+    setTimeout(function () { URL.revokeObjectURL(a.href); }, 3000);
   }
 
   /* ================= 单份简历查重报告 ================= */
@@ -1105,7 +1173,8 @@
             ok.push({
               head: parseResumeHead(text, file.name.replace(/\.[^.]+$/, '')),
               text: text,
-              file: file.name
+              file: file.name,
+              rawFile: file
             });
           }).catch(function (e) {
             fail.push(file.name + '：' + ((e && e.message) || e));
@@ -1296,6 +1365,7 @@
       return;
     }
     var cache = ensureTextIdx();
+    var jobs = [];
     accepted.forEach(function (rec) {
       var h = rec.head;
       var c = Store.newCandidate({
@@ -1311,18 +1381,58 @@
       state.candidates.push(c);
       if (cache.text) cache.text.set(c.id, Sim.makeIndex(c.rawText));
       if (cache.contact) cache.contact.set(c.id, Sim.contactTokens(contactOf(c)));
+
+      /* 保存原始附件：上传到云端存储后再把地址写回记录，供在线预览 / 下载 */
+      if (rec.rawFile) {
+        c.fileName = rec.file || c.srcFile || '';
+        c.fileType = fileMime(c.fileName);
+        c.fileSize = (typeof rec.rawFile.size === 'number') ? rec.rawFile.size : null;
+        jobs.push(
+          Store.uploadResumeFile(resumeFilePath(c, c.fileName), rec.rawFile)
+            .then(function (info) { c.filePath = info.path; c.fileUrl = info.url; })
+            .catch(function (e) { console.error('原始附件上传失败：' + c.fileName, e); })
+        );
+      }
     });
     cache.n = state.candidates.length;   /* 同步缓存计数，避免下次全量重建索引 */
-    persist();
-    refreshDup();
 
-    var msg = '已上传 ' + accepted.length + ' 份简历。';
-    if (blocked.length) msg += '\n已阻止 ' + blocked.length + ' 份（简历库中已存在相同简历）。';
-    if (soft.length) msg += '\n另有 ' + soft.length + ' 份疑似重复已按你的选择处理。';
-    if (fail && fail.length) {
-      msg += '\n\n以下 ' + fail.length + ' 个文件未能解析：\n— ' + fail.slice(0, 5).join('\n— ');
-    }
-    alert(msg);
+    Promise.all(jobs).then(function () {
+      persist();
+      refreshDup();
+
+      var msg = '已上传 ' + accepted.length + ' 份简历。';
+      if (blocked.length) msg += '\n已阻止 ' + blocked.length + ' 份（简历库中已存在相同简历）。';
+      if (soft.length) msg += '\n另有 ' + soft.length + ' 份疑似重复已按你的选择处理。';
+      if (fail && fail.length) {
+        msg += '\n\n以下文件未能解析：\n— ' + fail.slice(0, 5).join('\n— ');
+      }
+      alert(msg);
+    });
+  }
+
+  /* 取文件扩展名（小写、仅字母数字） */
+  function fileExtOf(name) {
+    var parts = String(name || '').split('.');
+    return parts.length > 1 ? parts.pop().toLowerCase().replace(/[^a-z0-9]/g, '') : '';
+  }
+
+  /* 原始附件在存储桶中的路径：按候选人 id 命名，同一份简历重复上传时直接覆盖 */
+  function resumeFilePath(c, fileName) {
+    return c.id + '.' + (fileExtOf(fileName) || 'bin');
+  }
+
+  /* 依据扩展名推断 MIME，用于预览与下载 */
+  function fileMime(fileName) {
+    var ext = fileExtOf(fileName);
+    if (ext === 'pdf') return 'application/pdf';
+    if (ext === 'txt') return 'text/plain';
+    if (ext === 'docx') return 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
+    if (ext === 'doc') return 'application/msword';
+    if (ext === 'png') return 'image/png';
+    if (ext === 'jpg' || ext === 'jpeg') return 'image/jpeg';
+    if (ext === 'gif') return 'image/gif';
+    if (ext === 'webp') return 'image/webp';
+    return '';
   }
 
   function exportJson() {

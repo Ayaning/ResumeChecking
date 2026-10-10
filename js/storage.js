@@ -55,6 +55,11 @@
       status: data.status || DEFAULT_STATUS,
       dupFlag: data.dupFlag || '',
       interviews: data.interviews || [],
+      filePath: (data.filePath || '').trim(),
+      fileUrl: (data.fileUrl || '').trim(),
+      fileType: (data.fileType || '').trim(),
+      fileSize: (data.fileSize === undefined || data.fileSize === null || data.fileSize === '') ? null : Number(data.fileSize),
+      fileName: (data.fileName || '').trim(),
       createdAt: data.createdAt || now,
       updatedAt: now
     };
@@ -117,6 +122,11 @@
       status: r.status || DEFAULT_STATUS,
       dupFlag: r.dup_flag || '',
       interviews: r.interviews || [],
+      filePath: r.file_path || '',
+      fileUrl: r.file_url || '',
+      fileType: r.file_type || '',
+      fileSize: (r.file_size === null || r.file_size === undefined) ? null : r.file_size,
+      fileName: r.file_name || '',
       createdAt: r.created_at || new Date().toISOString(),
       updatedAt: r.updated_at || new Date().toISOString()
     };
@@ -138,6 +148,11 @@
       status: c.status || DEFAULT_STATUS,
       dup_flag: c.dupFlag || '',
       interviews: c.interviews || [],
+      file_path: c.filePath || null,
+      file_url: c.fileUrl || null,
+      file_type: c.fileType || null,
+      file_size: (c.fileSize === null || c.fileSize === undefined) ? null : c.fileSize,
+      file_name: c.fileName || null,
       created_at: c.createdAt,
       updated_at: new Date().toISOString()
     };
@@ -276,6 +291,43 @@
     return (t / 1024).toFixed(1);
   }
 
+  function storageSize() {
+    var t = 0;
+    try {
+      for (var i = 0; i < localStorage.length; i++) {
+        var k = localStorage.key(i);
+        if (k) t += localStorage.getItem(k).length;
+      }
+    } catch (e) { /* ignore */ }
+    return (t / 1024).toFixed(1);
+  }
+
+  /* ============ 原始附件（Supabase Storage） ============ */
+  function bucketName() {
+    return (global.APP_CONFIG && global.APP_CONFIG.SUPABASE_BUCKET) || 'resumes';
+  }
+
+  /* 依据存储路径取公开访问地址（可在线预览 / 下载） */
+  function publicUrl(path) {
+    if (!client || !path) return '';
+    try {
+      var r = client.storage.from(bucketName()).getPublicUrl(path);
+      return (r && r.data && r.data.publicUrl) || '';
+    } catch (e) { return ''; }
+  }
+
+  /* 上传一份原始附件，返回 { path, url }；未接入云端时 reject */
+  function uploadResumeFile(path, file) {
+    if (!remoteReady || !client) return Promise.reject(new Error('未接入云端存储'));
+    return client.storage.from(bucketName()).upload(path, file, {
+      upsert: true,
+      contentType: (file && file.type) || 'application/octet-stream'
+    }).then(function (res) {
+      if (res.error) throw res.error;
+      return { path: path, url: publicUrl(path) };
+    });
+  }
+
   global.Store = {
     newCandidate: newCandidate,
     resyncSeq: resyncSeq,
@@ -289,6 +341,8 @@
     init: init,
     refresh: refresh,
     appendRemote: appendRemote,
-    isRemote: isRemote
+    isRemote: isRemote,
+    uploadResumeFile: uploadResumeFile,
+    publicUrl: publicUrl
   };
 })(window);
