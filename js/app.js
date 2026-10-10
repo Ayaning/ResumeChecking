@@ -65,7 +65,9 @@
     txtIdx: null,
     settings: Store.loadSettings(),
     dup: [],          // [{a, b, sim, hits, isDup, sameName, sameContact}]
-    dupCids: new Set() // ids involved in a dup pair
+    dupCids: new Set(), // ids involved in a dup pair
+    sortKey: '',      // '' | 'date'
+    sortDir: 0        // 1 升序, -1 降序
   };
 
   var editingId = null;
@@ -97,6 +99,10 @@
     if (isNaN(d.getTime())) return iso;
     function p(n) { return (n < 10 ? '0' : '') + n; }
     return d.getFullYear() + '-' + p(d.getMonth() + 1) + '-' + p(d.getDate()) + ' ' + p(d.getHours()) + ':' + p(d.getMinutes());
+  }
+  function dateVal(c) {
+    var t = Date.parse((c && c.createdAt) || '');
+    return isNaN(t) ? 0 : t;
   }
   function statusInfo(key) {
     for (var i = 0; i < STATUS.length; i++) if (STATUS[i].key === key) return STATUS[i];
@@ -286,6 +292,16 @@
       return true;
     });
 
+    /* 按上传日期排序 */
+    if (state.sortKey === 'date') {
+      list.sort(function (a, b) {
+        var da = dateVal(a), db = dateVal(b);
+        return state.sortDir === -1 ? db - da : da - db;
+      });
+    }
+    var indEl = $('#sort-ind-date');
+    if (indEl) indEl.textContent = state.sortKey === 'date' ? (state.sortDir === -1 ? '▼' : '▲') : '↕';
+
     $('#total-count').textContent = state.candidates.length;
     empty.hidden = list.length > 0;
     tbody.innerHTML = '';
@@ -301,6 +317,7 @@
           '<div class="cell-sub">' + hl(c.source, terms) + '</div></td>',
         '<td>' + (hl(c.position, terms) || '-') + '</td>',
         '<td>' + (hl(c.phone, terms) || hl(c.email, terms) || '-') + '</td>',
+        '<td class="col-date">' + fmtDate(c.createdAt) + '</td>',
         '<td>' + statusSelectHtml(c) + '</td>',
         '<td class="col-note">' + noteCellHtml(c) + '</td>',
         '<td class="row-actions">' +
@@ -1513,6 +1530,11 @@
     if ($('#search-scope')) $('#search-scope').onchange = renderResumeTable;
     $('#status-filter').onchange = renderResumeTable;
     $('#dup-filter').onchange = renderResumeTable;
+    if ($('#th-date')) $('#th-date').onclick = function () {
+      if (state.sortKey === 'date') state.sortDir = state.sortDir === -1 ? 1 : -1;
+      else { state.sortKey = 'date'; state.sortDir = -1; }
+      renderResumeTable();
+    };
 
     /* 状态筛选项由 STATUS 生成，避免和下拉框、看板列三处各写一份而对不上 */
     $('#status-filter').insertAdjacentHTML('beforeend', STATUS.map(function (s) {
