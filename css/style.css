@@ -120,7 +120,7 @@ main { max-width: 1200px; margin: 24px auto; padding: 0 16px; }
 }
 .table { width: 100%; border-collapse: collapse; min-width: 760px; }
 .table th, .table td {
-  text-align: left; padding: 10px 14px; border-bottom: 1px solid var(--border);
+  text-align: left; padding: 8px 9px; border-bottom: 1px solid var(--border);
   vertical-align: top;
 }
 .table th { background: #f8fafc; font-size: 12px; color: var(--muted); text-transform: uppercase; letter-spacing: .4px; white-space: nowrap; }
