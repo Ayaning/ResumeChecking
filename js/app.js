@@ -42,6 +42,9 @@
   /* 备注长度上限，表格内编辑框与录入弹窗共用 */
   var NOTE_MAX = 500;
 
+  /* 应聘岗位可选项：表格编辑、录入表单、普通用户上传共用同一份 */
+  var POSITIONS = ['功能测试', '自动化测试', 'AI测试', '前端开发', '后端开发'];
+
   /* 账号体系：管理员可查看全部功能；普通用户登录后仅可使用「上传简历」 */
   var ACCOUNTS = {
     admin: { pass: '2610', role: 'admin', label: '管理员' },
@@ -116,6 +119,19 @@
     }).join('');
     return '<select class="input select status-select" data-act="status" data-id="' + c.id + '" ' +
       'style="border-left:3px solid ' + statusInfo(cur).color + '">' + opts + '</select>';
+  }
+
+  /* 应聘岗位下拉：表格内联编辑、录入表单共用。旧值不在预设列表时保留，避免数据丢失 */
+  function positionOptionsHtml(cur) {
+    var list = POSITIONS.slice();
+    if (cur && list.indexOf(cur) < 0) list.unshift(cur);
+    return ['<option value="">未填写</option>'].concat(list.map(function (p) {
+      return '<option value="' + esc(p) + '"' + (p === cur ? ' selected' : '') + '>' + esc(p) + '</option>';
+    })).join('');
+  }
+  function positionSelectHtml(c) {
+    return '<select class="input select position-select" data-act="position" data-id="' + c.id + '">' +
+      positionOptionsHtml(c.position || '') + '</select>';
   }
 
   /* 备注单元格：可编辑，最多 500 字，显示已填字数 */
@@ -315,7 +331,7 @@
         '<td><div class="cell-main"><input class="input name-input' + (nameHit ? ' name-hit' : '') + '" data-act="name" data-id="' + c.id + '" value="' + esc(c.name || '') + '" placeholder="未命名">' +
           (isDup ? ' <span class="pill dup-pill">疑似重复</span>' : '') + '</div>' +
           '<div class="cell-sub">' + hl(c.source, terms) + '</div></td>',
-        '<td>' + (hl(c.position, terms) || '-') + '</td>',
+        '<td>' + positionSelectHtml(c) + '</td>',
         '<td>' + (hl(c.phone, terms) || hl(c.email, terms) || '-') + '</td>',
         '<td class="col-date">' + fmtDate(c.createdAt) + '</td>',
         '<td>' + statusSelectHtml(c) + '</td>',
@@ -351,6 +367,9 @@
     });
     container.querySelectorAll('select[data-act="status"]').forEach(function (sel) {
       sel.onchange = function () { setStatus(sel.dataset.id, sel.value); };
+    });
+    container.querySelectorAll('select[data-act="position"]').forEach(function (sel) {
+      sel.onchange = function () { setPosition(sel.dataset.id, sel.value); };
     });
     container.querySelectorAll('textarea[data-act="note"]').forEach(function (ta) {
       refreshNoteCount(ta);
@@ -418,13 +437,25 @@
     refreshDup();
   }
 
+  function setPosition(id, val) {
+    var c = findCand(id);
+    if (!c) return;
+    val = String(val || '').trim();
+    if (c.position === val) return;
+    c.position = val;
+    c.updatedAt = new Date().toISOString();
+    persist();
+    renderResumeTable();
+  }
+
   function openResumeModal(c) {
     editingId = c ? c.id : null;
     $('#resume-modal').hidden = false;
     $('#resume-modal-title').textContent = c ? '编辑简历 - ' + shortName(c) : '录入简历';
     $('#f-name').value = c ? c.name : '';
     $('#f-phone').value = c ? c.phone : '';
-    $('#f-position').value = c ? c.position : '';
+    $('#f-position').innerHTML = positionOptionsHtml(c ? (c.position || '') : '');
+    $('#f-position').value = c ? (c.position || '') : '';
     $('#f-source').value = c ? c.source : '';
     $('#f-text').value = c ? c.rawText : '';
     $('#f-score').value = c && c.score != null ? c.score : '';

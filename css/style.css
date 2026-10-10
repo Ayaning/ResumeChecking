@@ -138,6 +138,9 @@ main { max-width: 1200px; margin: 24px auto; padding: 0 16px; }
 .status-select { min-width: 96px; padding: 5px 8px; font-size: 13px; cursor: pointer; }
 .status-select:focus { outline: 2px solid var(--primary, #3a7bd5); outline-offset: 1px; }
 
+.position-select { min-width: 108px; padding: 5px 8px; font-size: 13px; cursor: pointer; }
+.position-select:focus { outline: 2px solid var(--primary, #3a7bd5); outline-offset: 1px; }
+
 .col-note { min-width: 220px; }
 .note-input { width: 100%; min-height: 46px; padding: 6px 8px; font-size: 13px; line-height: 1.45; resize: vertical; }
 .note-input:focus { outline: 2px solid var(--primary, #3a7bd5); outline-offset: 1px; }
