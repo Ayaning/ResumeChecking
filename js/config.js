@@ -6,5 +6,5 @@
 window.APP_CONFIG = {
   SUPABASE_URL: 'https://aqytpnzwcbqdkisnzyou.supabase.co',
   SUPABASE_ANON_KEY: 'sb_publishable_xfK7zu1AKOpY_15OVLx4uQ_hWqZVBWD',
-  SUPABASE_BUCKET: 'resumes'
+  SUPABASE_BUCKET: 'Resumes'
 };
