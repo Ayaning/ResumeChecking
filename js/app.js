@@ -81,6 +81,16 @@
       .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
       .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
   }
+  function escapeReg(s) {
+    return String(s).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  }
+  /* 高亮命中的关键词：先转义 HTML，再按关键词包 <mark> */
+  function hl(text, terms) {
+    var s = esc(text);
+    if (!terms || !terms.length) return s;
+    var re = new RegExp('(' + terms.map(escapeReg).join('|') + ')', 'gi');
+    return s.replace(re, '<mark class="hl">$1</mark>');
+  }
   function fmtDate(iso) {
     if (!iso) return '-';
     var d = new Date(iso);
@@ -246,17 +256,32 @@
     renderStatusFilterRow();
     var tbody = $('#resume-tbody');
     var empty = $('#resume-empty');
-    var kw = ($('#search-box').value || '').trim().toLowerCase();
+    var kwRaw = ($('#search-box').value || '').trim();
+    var scopeEl = $('#search-scope');
+    var scope = scopeEl ? scopeEl.value : 'name';
+    var terms = kwRaw ? kwRaw.toLowerCase().split(/\s+/).filter(Boolean) : [];
     var stFilter = $('#status-filter').value;
     var df = $('#dup-filter').value;
+
+    /* 按“搜索范围”取字段；支持多个关键词（空格分隔，需全部命中） */
+    function searchField(c) {
+      switch (scope) {
+        case 'phone': return (c.phone || '') + ' ' + (c.email || '');
+        case 'position': return c.position || '';
+        case 'source': return c.source || '';
+        case 'text': return c.rawText || '';
+        case 'all': return [c.name, c.phone, c.email, c.position, c.source, c.rawText, c.note].join(' ');
+        default: return c.name || '';
+      }
+    }
 
     var list = state.candidates.filter(function (c) {
       if (stFilter && c.status !== stFilter) return false;
       if (df === 'dup' && !state.dupCids.has(c.id)) return false;
       if (df === 'clean' && state.dupCids.has(c.id)) return false;
-      if (kw) {
-        var hay = (c.name + c.phone + c.position + c.source + c.rawText + c.note).toLowerCase();
-        if (hay.indexOf(kw) < 0) return false;
+      if (terms.length) {
+        var hay = searchField(c).toLowerCase();
+        for (var i = 0; i < terms.length; i++) if (hay.indexOf(terms[i]) < 0) return false;
       }
       return true;
     });
@@ -267,14 +292,15 @@
 
     list.forEach(function (c) {
       var isDup = state.dupCids.has(c.id);
+      var nameHit = terms.length && terms.some(function (t) { return (c.name || '').toLowerCase().indexOf(t) >= 0; });
       var tr = document.createElement('tr');
       tr.innerHTML = [
         '<td class="col-seq">' + (c.seq || '-') + '</td>',
-        '<td><div class="cell-main"><input class="input name-input" data-act="name" data-id="' + c.id + '" value="' + esc(c.name || '') + '" placeholder="未命名">' +
+        '<td><div class="cell-main"><input class="input name-input' + (nameHit ? ' name-hit' : '') + '" data-act="name" data-id="' + c.id + '" value="' + esc(c.name || '') + '" placeholder="未命名">' +
           (isDup ? ' <span class="pill dup-pill">疑似重复</span>' : '') + '</div>' +
-          '<div class="cell-sub">' + esc(c.source) + '</div></td>',
-        '<td>' + (esc(c.position) || '-') + '</td>',
-        '<td>' + (esc(c.phone) || esc(c.email) || '-') + '</td>',
+          '<div class="cell-sub">' + hl(c.source, terms) + '</div></td>',
+        '<td>' + (hl(c.position, terms) || '-') + '</td>',
+        '<td>' + (hl(c.phone, terms) || hl(c.email, terms) || '-') + '</td>',
         '<td>' + statusSelectHtml(c) + '</td>',
         '<td class="col-note">' + noteCellHtml(c) + '</td>',
         '<td class="row-actions">' +
@@ -1484,6 +1510,7 @@
     $('#btn-seed').onclick = seedData;
 
     $('#search-box').oninput = renderResumeTable;
+    if ($('#search-scope')) $('#search-scope').onchange = renderResumeTable;
     $('#status-filter').onchange = renderResumeTable;
     $('#dup-filter').onchange = renderResumeTable;
 

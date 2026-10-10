@@ -59,7 +59,15 @@
     <p class="hint" id="upload-status" hidden></p>
 
     <div class="toolbar">
-      <input type="search" id="search-box" class="input search" placeholder="搜索姓名 / 电话 / 应聘岗位 / 简历内容...">
+      <input type="search" id="search-box" class="input search" placeholder="搜索（多关键词用空格分隔，如：苏 工程师）...">
+      <select id="search-scope" class="input select">
+        <option value="name" selected>按姓名</option>
+        <option value="all">全部字段</option>
+        <option value="phone">电话/邮箱</option>
+        <option value="position">应聘岗位</option>
+        <option value="source">来源</option>
+        <option value="text">简历内容</option>
+      </select>
       <select id="status-filter" class="input select">
         <option value="">全部状态</option>
       </select>

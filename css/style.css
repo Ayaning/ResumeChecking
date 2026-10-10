@@ -140,6 +140,7 @@ main { max-width: 1200px; margin: 24px auto; padding: 0 16px; }
 .cell-main .dup-pill { font-size: 11px; padding: 1px 6px; vertical-align: middle; }
 .name-input { width: 100%; min-width: 88px; max-width: 160px; padding: 4px 6px; font-size: 13px; font-weight: 600; }
 .name-input:focus { outline: 2px solid var(--primary, #3a7bd5); outline-offset: 1px; }
+.name-input.name-hit { background: #fde047; }
 
 .cell-main { font-weight: 600; }
 .cell-sub { color: var(--muted); font-size: 12px; }
