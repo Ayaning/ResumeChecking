@@ -107,9 +107,17 @@
     <div class="panel-head">
       <div class="panel-title">
         <h2>上传简历</h2>
-        <p>上传需查验的简历文件（支持 .txt / .pdf / .docx）。系统会自动与简历库中的数据比对，发现重复将阻止上传并提示。</p>
+        <p>上传需查验的简历文件（支持 .txt / .pdf / .docx）。请先选择应聘岗位，系统会自动与简历库中的数据比对，发现重复将阻止上传并提示。</p>
       </div>
       <div class="panel-actions">
+        <select id="user-position" class="input select" title="选择应聘岗位">
+          <option value="">请选择应聘岗位</option>
+          <option value="功能测试">功能测试</option>
+          <option value="自动化测试">自动化测试</option>
+          <option value="AI测试">AI测试</option>
+          <option value="前端开发">前端开发</option>
+          <option value="后端开发">后端开发</option>
+        </select>
         <button class="btn primary" id="btn-user-import">上传简历文件</button>
         <input type="file" id="user-file-input" accept=".txt,.pdf,.docx,text/plain,application/pdf" hidden multiple>
       </div>

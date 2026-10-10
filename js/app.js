@@ -1049,6 +1049,15 @@
   function handleFileUpload(files, scope) {
     var arr = Array.from(files || []);
     if (!arr.length) return;
+
+    /* 普通用户：必须先选择应聘岗位，该岗位将覆盖自动解析出的岗位 */
+    var pagePosition = '';
+    if (scope === 'user') {
+      var sel = $('#user-position');
+      pagePosition = sel ? sel.value : '';
+      if (!pagePosition) { alert('请先选择应聘岗位，再上传简历。'); return; }
+    }
+
     setUploadStatus('正在同步简历库…', scope);
 
     function start() {
@@ -1078,7 +1087,7 @@
 
       chain.then(function () {
         setUploadStatus('', scope);
-        if (ok.length) afterUpload(ok, fail);
+        if (ok.length) afterUpload(ok, fail, pagePosition);
         else alert('未能读取所选文件内容。\n\n' + fail.slice(0, 5).join('\n'));
       });
     }
@@ -1100,7 +1109,7 @@
    */
   var UPLOAD_HARD_BLOCK = { high: 1, contact: 1 };
 
-  function afterUpload(texts, fail) {
+  function afterUpload(texts, fail, pagePosition) {
     if (!texts.length) { alert('未能读取所选文件内容。'); return; }
     var th = state.settings.threshold;
     var cache = ensureTextIdx();
@@ -1134,7 +1143,7 @@
     });
 
     if (!blocked.length && !soft.length) {
-      commitUploads(clean, [], [], fail);
+      commitUploads(clean, [], [], fail, pagePosition);
       return;
     }
 
@@ -1144,7 +1153,7 @@
           ' 份、未上传 ' + clean.length + ' 份。');
         return;
       }
-      commitUploads(clean.concat(approved), blocked, soft, fail);
+      commitUploads(clean.concat(approved), blocked, soft, fail, pagePosition);
     });
   }
 
@@ -1249,7 +1258,7 @@
   }
 
   /* 真正写入简历库 */
-  function commitUploads(accepted, blocked, soft, fail) {
+  function commitUploads(accepted, blocked, soft, fail, pagePosition) {
     if (!accepted.length) {
       if (fail && fail.length) alert('没有可上传的简历。\n\n以下文件未能解析：\n— ' + fail.slice(0, 5).join('\n— '));
       else alert('没有可上传的简历。');
@@ -1262,7 +1271,7 @@
         name: h.name,
         phone: h.phone,
         email: h.email,
-        position: h.position,
+        position: pagePosition || h.position,
         source: '上传',
         rawText: rec.text.text,
         srcFile: rec.text.file || '',
