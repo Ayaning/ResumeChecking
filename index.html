@@ -1,0 +1,350 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>简历查重与面试跟踪系统</title>
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+<!-- ============ 登录 ============ -->
+<div class="login-mask" id="login-view">
+  <div class="login-card">
+    <div class="login-brand">
+      <span class="logo">CV</span>
+      <h2>简历查重与面试跟踪系统</h2>
+      <p class="login-sub">请登录后使用</p>
+    </div>
+    <div class="login-form">
+      <label>账号<input id="login-username" class="input" placeholder="请输入账号" autocomplete="off"></label>
+      <label>密码<input id="login-password" class="input" type="password" placeholder="请输入密码"></label>
+      <p class="login-error" id="login-error" hidden></p>
+      <button class="btn primary" id="btn-login">登 录</button>
+    </div>
+    <p class="login-hint">普通用户账号：user<br>密码：000<br>普通用户登录后仅可使用「上传简历」功能。</p>
+  </div>
+</div>
+
+<header class="topbar">
+  <div class="brand">
+    <span class="logo">CV</span>
+    <div>
+      <h1>简历查重与面试跟踪系统</h1>
+      <p class="sub">Resume Deduplication &amp; Interview Tracker</p>
+    </div>
+  </div>
+  <nav class="tabs">
+    <button class="tab active" data-tab="resumes">简历库</button>
+    <button class="tab" data-tab="duplicate">查重分析</button>
+    <button class="tab" data-tab="tracking">筛选与面试</button>
+    <button class="tab" data-tab="settings">设置</button>
+  </nav>
+  <button class="btn logout-btn" id="btn-logout" hidden>退出登录</button>
+</header>
+
+<main>
+  <!-- ============ 简历库 ============ -->
+  <section id="tab-resumes" class="panel active">
+    <div class="panel-head">
+      <div class="panel-title">
+        <h2>简历库 <span class="count-badge" id="total-count">0</span></h2>
+        <p>录入待考查的候选人简历，支持粘贴文本或上传 .txt / .pdf / .docx 文件，数据保存在本地浏览器。</p>
+      </div>
+      <div class="panel-actions">
+        <button class="btn" id="btn-import-file">上传简历文件</button>
+        <input type="file" id="file-input" accept=".txt,.pdf,.docx,text/plain,application/pdf" hidden multiple>
+        <button class="btn primary" id="btn-new-resume">+ 手动录入简历</button>
+      </div>
+    </div>
+    <p class="hint" id="upload-status" hidden></p>
+
+    <div class="toolbar">
+      <input type="search" id="search-box" class="input search" placeholder="搜索姓名 / 电话 / 应聘岗位 / 简历内容...">
+      <select id="status-filter" class="input select">
+        <option value="">全部状态</option>
+      </select>
+      <select id="dup-filter" class="input select">
+        <option value="">全部（含/不含重复）</option>
+        <option value="dup">仅疑似重复</option>
+        <option value="clean">仅无重复</option>
+      </select>
+    </div>
+
+    <div class="status-filter-row" id="status-filter-row"></div>
+
+    <div class="table-wrap">
+      <table class="table" id="resume-table">
+        <thead>
+          <tr>
+            <th class="col-seq">编号</th>
+            <th>姓名</th>
+            <th>应聘岗位</th>
+            <th>联系方式</th>
+            <th>状态</th>
+            <th>备注</th>
+            <th>操作</th>
+          </tr>
+        </thead>
+        <tbody id="resume-tbody"></tbody>
+      </table>
+      <div class="empty" id="resume-empty" hidden>
+        <p>暂无简历。点击「+ 手动录入简历」或「上传简历文件」开始（支持 .txt / .pdf / .docx），也可以先加载示例数据（设置页）。</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ 上传简历（普通用户） ============ -->
+  <section id="tab-user" class="panel">
+    <div class="panel-head">
+      <div class="panel-title">
+        <h2>上传简历</h2>
+        <p>上传需查验的简历文件（支持 .txt / .pdf / .docx）。系统会自动与简历库中的数据比对，发现重复将阻止上传并提示。</p>
+      </div>
+      <div class="panel-actions">
+        <button class="btn primary" id="btn-user-import">上传简历文件</button>
+        <input type="file" id="user-file-input" accept=".txt,.pdf,.docx,text/plain,application/pdf" hidden multiple>
+      </div>
+    </div>
+    <p class="hint" id="user-upload-status" hidden></p>
+    <div class="user-upload-tip"><p>说明：普通用户仅有上传权限，无法查看、修改或导出简历库中的任何数据。</p></div>
+  </section>
+
+  <!-- ============ 查重分析 ============ -->
+  <section id="tab-duplicate" class="panel">
+    <div class="panel-head">
+      <div class="panel-title">
+        <h2>查重分析</h2>
+        <p>基于字符 n-gram 相似度计算简历两两之间的重复程度，阈值可在设置中调整（默认 70%）。</p>
+      </div>
+      <div class="panel-actions">
+        <button class="btn primary" id="btn-run-dup">运行查重</button>
+      </div>
+    </div>
+
+    <div class="summary-cards">
+      <div class="card"><div class="card-num" id="sum-total">-</div><div class="card-label">参与查重</div></div>
+      <div class="card"><div class="card-num" id="sum-dup">-</div><div class="card-label">疑似重复对</div></div>
+      <div class="card"><div class="card-num" id="sum-dup-cand">-</div><div class="card-label">涉重候选人</div></div>
+      <div class="card"><div class="card-num" id="sum-max">-</div><div class="card-label">最高相似度</div></div>
+    </div>
+
+    <div class="panel-title sub-title"><h3>重复对详情</h3></div>
+    <div class="table-wrap">
+      <table class="table" id="dup-table">
+        <thead>
+          <tr>
+            <th>相似度</th>
+            <th>候选人 A</th>
+            <th>候选人 B</th>
+            <th>结果</th>
+            <th>共享内容片段</th>
+            <th>操作</th>
+          </tr>
+        </thead>
+        <tbody id="dup-tbody"></tbody>
+      </table>
+      <p class="muted dup-cap" id="dup-cap" hidden></p>
+      <div class="empty" id="dup-empty" hidden>
+        <p>尚未运行查重。请先录入至少两封简历后点击「运行查重」。</p>
+      </div>
+    </div>
+
+    <div class="panel-title sub-title"><h3>相似度总览矩阵</h3></div>
+    <div class="matrix-wrap" id="matrix-wrap"></div>
+  </section>
+
+  <!-- ============ 筛选与面试 ============ -->
+  <section id="tab-tracking" class="panel">
+    <div class="panel-head">
+      <div class="panel-title">
+        <h2>筛选与面试跟踪</h2>
+        <p>看板式管理候选人漏斗：筛选 → 面试 → 录用/淘汰，并记录每轮面试详情。</p>
+      </div>
+    </div>
+    <div class="kanban" id="kanban"></div>
+  </section>
+
+  <!-- ============ 设置 ============ -->
+  <section id="tab-settings" class="panel">
+    <div class="panel-head">
+      <div class="panel-title">
+        <h2>设置</h2>
+        <p>配置查重阈值、管理本地数据。</p>
+      </div>
+    </div>
+
+    <div class="settings-block">
+      <h3>查重阈值</h3>
+      <label class="row">
+        <span>相似度阈值（超过即标记为疑似重复）：</span>
+        <input type="range" id="threshold-range" min="40" max="95" step="5" value="70">
+        <span class="threshold-val" id="threshold-val">70%</span>
+      </label>
+      <p class="hint">阈值越低则越严格，越容易把相近简历判为重复；中文简历建议 60%–80%。</p>
+    </div>
+
+    <div class="settings-block">
+      <h3>示例数据</h3>
+      <button class="btn" id="btn-seed">加载示例数据（含 1 组重复简历对）</button>
+    </div>
+
+    <div class="settings-block">
+      <h3>数据管理</h3>
+      <div class="btn-group">
+        <button class="btn" id="btn-export">导出全部数据 (JSON)</button>
+        <button class="btn" id="btn-import">导入数据</button>
+        <input type="file" id="import-input" accept=".json,application/json" hidden>
+        <button class="btn danger" id="btn-clear">清空所有数据</button>
+      </div>
+      <p class="hint">数据仅保存在当前浏览器的 localStorage 中，建议定期导出备份。当前数据量：<span class="bold" id="data-size">0 KB</span></p>
+    </div>
+  </section>
+</main>
+
+<!-- ============ 简历编辑弹窗 ============ -->
+<div class="modal-mask" id="resume-modal" hidden>
+  <div class="modal">
+    <div class="modal-head">
+      <h3 id="resume-modal-title">录入简历</h3>
+      <button class="modal-close" data-close="resume-modal">&times;</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-grid">
+        <label>姓名 *<input id="f-name" class="input" placeholder="张三" autocomplete="off"></label>
+        <label>电话 / 邮箱<input id="f-phone" class="input" placeholder="138xxxx / a@b.com" autocomplete="off"></label>
+        <div class="name-dup-cell" id="name-dup-cell">
+          <div class="name-dup" id="name-dup-box" hidden></div>
+        </div>
+        <label>应聘岗位<input id="f-position" class="input" placeholder="Java 开发工程师"></label>
+        <label>来源<input id="f-source" class="input" placeholder="BOSS直聘 / 内推 / 猎头"></label>
+      </div>
+      <label>简历正文 *（粘贴简历文本，或用于存疑正文）<textarea id="f-text" class="input textarea" rows="12" placeholder="粘贴简历正文内容，用于查重比较..."></textarea></label>
+      <label>筛选评分（0-100，可留空）<input id="f-score" class="input" type="number" min="0" max="100" placeholder="70"></label>
+        <label>备注（最多 500 字）<textarea id="f-note" class="input textarea" rows="3" maxlength="500" placeholder="备注信息..."></textarea></label>
+    </div>
+    <div class="modal-foot">
+      <button class="btn" data-close="resume-modal">取消</button>
+      <button class="btn primary" id="btn-save-resume">保存</button>
+    </div>
+  </div>
+</div>
+
+<!-- ============ 面试记录弹窗 ============ -->
+<div class="modal-mask" id="interview-modal" hidden>
+  <div class="modal">
+    <div class="modal-head">
+      <h3 id="interview-modal-title">面试记录</h3>
+      <button class="modal-close" data-close="interview-modal">&times;</button>
+    </div>
+    <div class="modal-body">
+      <div class="timeline" id="interview-timeline"></div>
+      <div class="divider"><span>新增面试轮次</span></div>
+      <div class="form-grid">
+        <label>轮次<input id="iv-round" class="input" disabled></label>
+        <label>面试类型
+          <select id="iv-type" class="input select"><option>技术面</option><option>HR面</option><option>综合面</option><option>主管面</option><option>笔试</option></select>
+        </label>
+        <label>面试官<input id="iv-interviewer" class="input" placeholder="王经理"></label>
+        <label>评分 (0-100)<input id="iv-score" class="input" type="number" min="0" max="100" placeholder="80"></label>
+      </div>
+      <label>本轮评价<textarea id="iv-evaluation" class="input textarea" rows="3" placeholder="面试表现、沟通、技能匹配等..."></textarea></label>
+      <label>面试结果
+        <select id="iv-result" class="input select">
+          <option value="pass">通过（进入下一轮）</option>
+          <option value="hold">待定</option>
+          <option value="fail">不通过</option>
+          <option value="hire">录用</option>
+        </select>
+      </label>
+    </div>
+    <div class="modal-foot">
+      <button class="btn" data-close="interview-modal">关闭</button>
+      <button class="btn primary" id="btn-add-interview">添加记录</button>
+    </div>
+  </div>
+</div>
+
+<!-- ============ 单份简历查重报告弹窗 ============ -->
+<div class="modal-mask" id="cand-dup-modal" hidden>
+  <div class="modal modal-lg">
+    <div class="modal-head">
+      <h3 id="cand-dup-title">简历查重报告</h3>
+      <button class="modal-close" data-close="cand-dup-modal">&times;</button>
+    </div>
+    <div class="modal-body">
+      <div class="dup-score-banner" id="cand-dup-banner"></div>
+      <div class="nd-filter-row">
+        <label><input type="checkbox" id="cand-dup-onlyhit"> 仅显示命中「姓名 / 联系方式 / 疑似重复」的记录</label>
+      </div>
+      <div class="nd-report" id="cand-dup-body"></div>
+    </div>
+    <div class="modal-foot">
+      <button class="btn" data-close="cand-dup-modal">关闭</button>
+    </div>
+  </div>
+</div>
+
+<!-- ============ 查重详情弹窗 ============ -->
+<div class="modal-mask" id="dup-detail-modal" hidden>
+  <div class="modal modal-lg">
+    <div class="modal-head">
+      <h3 id="dup-detail-title">相似内容对比</h3>
+      <button class="modal-close" data-close="dup-detail-modal">&times;</button>
+    </div>
+    <div class="modal-body">
+      <div class="dup-score-banner" id="dup-detail-score"></div>
+      <div class="two-col">
+        <div class="col"><h4 id="dup-left-name">候选人 A</h4><pre id="dup-left-text" class="pre"></pre></div>
+        <div class="col"><h4 id="dup-right-name">候选人 B</h4><pre id="dup-right-text" class="pre"></pre></div>
+      </div>
+    </div>
+    <div class="modal-foot">
+      <button class="btn" data-close="dup-detail-modal">关闭</button>
+    </div>
+  </div>
+</div>
+
+<!-- ============ 完整简历信息弹窗 ============ -->
+<div class="modal-mask" id="resume-info-modal" hidden>
+  <div class="modal modal-lg">
+    <div class="modal-head">
+      <h3 id="resume-info-title">完整简历</h3>
+      <button class="modal-close" data-close="resume-info-modal">&times;</button>
+    </div>
+    <div class="modal-body">
+      <div class="info-grid" id="resume-info-meta"></div>
+      <div class="divider"><span>原始简历数据</span></div>
+      <pre id="resume-info-text" class="pre"></pre>
+    </div>
+    <div class="modal-foot">
+      <button class="btn" data-close="resume-info-modal">关闭</button>
+    </div>
+  </div>
+</div>
+
+<!-- ============ 上传查重拦截弹窗 ============ -->
+<div class="modal-mask" id="upload-dup-modal" hidden>
+  <div class="modal modal-lg">
+    <div class="modal-head">
+      <h3>上传查重结果</h3>
+      <button class="modal-close" data-close="upload-dup-modal">&times;</button>
+    </div>
+    <div class="modal-body">
+      <div class="dup-score-banner" id="upload-dup-banner"></div>
+      <div id="upload-dup-body"></div>
+    </div>
+    <div class="modal-foot">
+      <button class="btn" id="upload-dup-cancel">全部取消</button>
+      <button class="btn primary" id="upload-dup-ok">确认上传</button>
+    </div>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="js/config.js"></script>
+<script src="js/similarity.js"></script>
+<script src="js/storage.js"></script>
+<script src="js/fileparse.js"></script>
+<script src="js/app.js"></script>
+</body>
+</html>
