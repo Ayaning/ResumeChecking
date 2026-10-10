@@ -304,7 +304,7 @@
 
   /* ============ 原始附件（Supabase Storage） ============ */
   function bucketName() {
-    return (global.APP_CONFIG && global.APP_CONFIG.SUPABASE_BUCKET) || 'resumes';
+    return (global.APP_CONFIG && global.APP_CONFIG.SUPABASE_BUCKET) || 'Resumes';
   }
 
   /* 依据存储路径取公开访问地址（可在线预览 / 下载） */
