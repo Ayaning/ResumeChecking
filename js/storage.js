@@ -310,6 +310,7 @@
       id: data.id || uid(),
       seq: Number(data.seq) || 0,
       name: (data.name || '').trim(),
+      position: (data.position || '').trim(),
       time: data.time || '',
       place: (data.place || '').trim(),
       note: (data.note || '').trim(),
