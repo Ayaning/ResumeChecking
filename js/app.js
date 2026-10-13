@@ -957,25 +957,77 @@
       var tr = document.createElement('tr');
       tr.innerHTML = [
         '<td class="col-seq">' + (s.seq || '-') + '</td>',
-        '<td>' + esc(s.name || '-') + '</td>',
-        '<td class="col-date">' + fmtDate(s.time) + '</td>',
-        '<td>' + esc(s.place || '-') + '</td>',
-        '<td class="col-note">' + esc(s.note || '-') + '</td>',
-        '<td class="row-actions">' +
-          '<button class="btn sm" data-act="edit-sch" data-id="' + s.id + '">编辑</button>' +
-          '<button class="btn sm danger" data-act="del-sch" data-id="' + s.id + '">删除</button>' +
-        '</td>'
+        '<td><input class="input name-input" data-act="s-name" data-id="' + s.id + '" value="' + esc(s.name || '') + '" placeholder="面试人姓名"></td>',
+        '<td><input class="input" type="datetime-local" data-act="s-time" data-id="' + s.id + '" value="' + esc(s.time || '') + '"></td>',
+        '<td><input class="input" data-act="s-place" data-id="' + s.id + '" value="' + esc(s.place || '') + '" placeholder="面试地点"></td>',
+        '<td class="col-note"><textarea class="input note-input" data-act="s-note" data-id="' + s.id + '" rows="2" maxlength="500" placeholder="备注">' + esc(s.note || '') + '</textarea></td>',
+        '<td class="row-actions"><button class="btn sm danger" data-del="' + s.id + '">删除</button></td>'
       ].join('');
       tbody.appendChild(tr);
-      tr.querySelector('[data-act="edit-sch"]').onclick = function () { openScheduleModal(s.id); };
-      tr.querySelector('[data-act="del-sch"]').onclick = function () {
+
+      tr.querySelector('[data-del]').onclick = function () {
         if (confirm('确定删除「' + (s.name || '未命名') + '」的面试安排？')) {
           state.schedules = state.schedules.filter(function (x) { return x.id !== s.id; });
           Store.saveSchedules(state.schedules);
           renderScheduleTable();
         }
       };
+
+      var nameInp = tr.querySelector('[data-act="s-name"]');
+      var nameOrig = nameInp.value;
+      nameInp.addEventListener('blur', function () { saveScheduleField(nameInp, 'name', nameOrig, true); });
+      nameInp.addEventListener('keydown', function (e) {
+        if (e.key === 'Enter') { e.preventDefault(); nameInp.blur(); }
+        if (e.key === 'Escape') { nameInp.value = nameOrig; nameInp.blur(); }
+      });
+
+      var timeInp = tr.querySelector('[data-act="s-time"]');
+      var timeOrig = timeInp.value;
+      timeInp.addEventListener('change', function () { saveScheduleField(timeInp, 'time', timeOrig, false); });
+      timeInp.addEventListener('keydown', function (e) {
+        if (e.key === 'Escape') { timeInp.value = timeOrig; timeInp.blur(); }
+      });
+
+      var placeInp = tr.querySelector('[data-act="s-place"]');
+      var placeOrig = placeInp.value;
+      placeInp.addEventListener('blur', function () { saveScheduleField(placeInp, 'place', placeOrig, false); });
+      placeInp.addEventListener('keydown', function (e) {
+        if (e.key === 'Enter') { e.preventDefault(); placeInp.blur(); }
+        if (e.key === 'Escape') { placeInp.value = placeOrig; placeInp.blur(); }
+      });
+
+      var noteTa = tr.querySelector('[data-act="s-note"]');
+      var noteOrig = noteTa.value;
+      noteTa.addEventListener('blur', function () { saveScheduleField(noteTa, 'note', noteOrig, false); });
+      noteTa.addEventListener('keydown', function (e) {
+        if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); noteTa.blur(); }
+        if (e.key === 'Escape') { noteTa.value = noteOrig; noteTa.blur(); }
+      });
     });
+  }
+
+  function findSchedule(id) {
+    for (var i = 0; i < state.schedules.length; i++) {
+      if (state.schedules[i].id === id) return state.schedules[i];
+    }
+    return null;
+  }
+
+  function saveScheduleField(el, field, orig, required) {
+    var s = findSchedule(el.dataset.id);
+    if (!s) { el.value = orig; return; }
+    var val = field === 'note' ? String(el.value || '').slice(0, 500) : String(el.value || '').trim();
+    if (required && !val) {
+      alert('面试人姓名不能为空。');
+      el.value = orig;
+      return;
+    }
+    if (field === 'time' && !val) { el.value = orig; return; }
+    if (s[field] === val) return;
+    s[field] = val;
+    s.updatedAt = new Date().toISOString();
+    Store.saveSchedules(state.schedules);
+    renderScheduleTable();
   }
 
   function openScheduleModal(id) {
