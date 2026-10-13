@@ -67,6 +67,7 @@
     candidates: [],
     txtIdx: null,
     settings: Store.loadSettings(),
+    schedules: Store.loadSchedules(),
     dup: [],          // [{a, b, sim, hits, isDup, sameName, sameContact}]
     dupCids: new Set(), // ids involved in a dup pair
     sortKey: '',      // '' | 'date'
@@ -74,6 +75,7 @@
   };
 
   var editingId = null;
+  var scheduleEditingId = null;
   var ivCandidateId = null;
   var reportCandidateId = null;
   var ndTimer = null;   // 录入弹窗实时查重防抖
@@ -240,7 +242,7 @@
       return;
     }
 
-    if (name === 'duplicate') renderDuplicates();
+    if (name === 'schedule') renderScheduleTable();
     if (name === 'tracking') renderKanban();
   }
 
@@ -553,9 +555,6 @@
   }
 
   /* ================= 查重（全量两两） ================= */
-  var MAX_DUP_ROWS = 200;     // 重复列表最多渲染多少行
-  var MAX_MATRIX_N = 40;      // 相似度矩阵最多展示多少名候选人
-
   function runDuplicates() {
     var list = state.candidates;
     var out = [];
@@ -609,103 +608,6 @@
       persist();
       renderAll();
     }
-  }
-
-  function renderDuplicates() {
-    $('#sum-total').textContent = state.candidates.length;
-    var dupPairs = state.dup.filter(function (d) { return d.isDup; });
-    $('#sum-dup').textContent = dupPairs.length;
-    $('#sum-dup-cand').textContent = state.dupCids.size;
-    var maxSim = 0;
-    state.dup.forEach(function (d) { if (d.sim > maxSim) maxSim = d.sim; });
-    $('#sum-max').textContent = maxSim ? maxSim + '%' : '-';
-
-    var tbody = $('#dup-tbody');
-    var empty = $('#dup-empty');
-    var cap = $('#dup-cap');
-    empty.hidden = state.dup.length > 0;
-    tbody.innerHTML = '';
-    if (!state.dup.length) {
-      if (cap) cap.hidden = true;
-      renderMatrix();
-      return;
-    }
-
-    var shown = state.dup.length > MAX_DUP_ROWS ? state.dup.slice(0, MAX_DUP_ROWS) : state.dup;
-    if (cap) {
-      cap.hidden = state.dup.length <= MAX_DUP_ROWS;
-      cap.textContent = '共 ' + state.dup.length + ' 组两两比对，已按「疑似重复优先、相似度从高到低」展示前 ' +
-        shown.length + ' 组；完整结果可通过「运行查重」后在控制台查看 state.dup。';
-    }
-
-    shown.forEach(function (d, rowIdx) {
-      var reasons = [];
-      if (d.sameName) reasons.push('姓名相同');
-      if (d.sameContact) reasons.push('联系方式相同');
-      if (d.sim >= state.settings.threshold) reasons.push('正文相似度 ≥ 阈值');
-      if (!reasons.length) reasons.push('正文相似度未达阈值');
-
-      var tr = document.createElement('tr');
-      tr.className = d.isDup ? 'dup-row' : '';
-      var chip = d.isDup
-        ? '<span class="pill dup-pill">疑似重复</span>'
-        : '<span class="pill ok-pill">正常</span>';
-      tr.innerHTML = [
-        '<td><div class="sim-bar-wrap"><div class="sim-bar" style="width:' + d.sim + '%"></div><span class="sim-num">' + d.sim + '%</span></div></td>',
-        '<td>' + esc(shortName(d.a)) + '<div class="cell-sub">' + esc(d.a.position) + '</div></td>',
-        '<td>' + esc(shortName(d.b)) + '<div class="cell-sub">' + esc(d.b.position) + '</div></td>',
-        '<td>' + chip + '<div class="cell-sub">' + esc(reasons.join(' / ')) + '</div></td>',
-        '<td class="hits-cell">' + (d.hits.length ? '<div class="hits-preview">' + esc(d.hits[0]) + '</div><span class="cell-sub">共 ' + d.hits.length + ' 处共享片段</span>' : '<span class="muted">无完整同句</span>') + '</td>',
-        '<td><button class="btn sm" data-act="detail" data-idx="' + rowIdx + '">对比详情</button></td>'
-      ].join('');
-      tbody.appendChild(tr);
-    });
-
-    tbody.querySelectorAll('button[data-act="detail"]').forEach(function (btn) {
-      btn.onclick = function () {
-        openDupDetail(state.dup[Number(btn.dataset.idx)]);
-      };
-    });
-    renderMatrix();
-  }
-
-  function renderMatrix() {
-    var wrap = $('#matrix-wrap');
-    var list = state.candidates;
-    wrap.innerHTML = '';
-    if (list.length < 2) {
-      wrap.innerHTML = '<p class="muted">至少需要 2 封简历才能展示相似度矩阵。</p>';
-      return;
-    }
-    if (list.length > MAX_MATRIX_N) {
-      wrap.innerHTML = '<p class="muted">相似度矩阵仅支持 ' + MAX_MATRIX_N + ' 名及以下候选人（当前 ' +
-        list.length + ' 人）。请在上方「疑似重复」列表中查看查重结果。</p>';
-      return;
-    }
-    var names = list.map(function (c) { return shortName(c); });
-    var index = {};
-    state.dup.forEach(function (d) { index[d.a.id + '>' + d.b.id] = d; });
-
-    var table = document.createElement('table');
-    table.className = 'matrix';
-    var head = '<tr><th class="corner"></th>';
-    names.forEach(function (n) { head += '<th>' + esc(n) + '</th>'; });
-    head += '</tr>';
-    table.innerHTML = head;
-
-    for (var i = 0; i < list.length; i++) {
-      var row = '<tr><th class="corner">' + esc(names[i]) + '</th>';
-      for (var j = 0; j < list.length; j++) {
-        if (i === j) { row += '<td class="diag"></td>'; continue; }
-        var d = index[list[i].id + '>' + list[j].id] || index[list[j].id + '>' + list[i].id];
-        var sim = d ? d.sim : 0;
-        var bg = d && d.isDup ? '#e74c3c' : (sim >= state.settings.threshold ? '#e74c3c' : (sim > 30 ? '#f39c12' : '#2ecc71'));
-        row += '<td class="cell" style="background:' + bg + '" title="' + esc(names[i]) + ' vs ' + esc(names[j]) + '">' + (sim || '') + '</td>';
-      }
-      row += '</tr>';
-      table.insertAdjacentHTML('beforeend', row);
-    }
-    wrap.appendChild(table);
   }
 
   /* ================= 相似内容对比弹窗 ================= */
@@ -1031,6 +933,94 @@
     persist();
     renderAll();
     openInterviewModal(ivCandidateId);
+  }
+
+  /* ================= 候选人面试安排 ================= */
+  function renderScheduleTable() {
+    var tbody = $('#schedule-tbody');
+    if (!tbody) return;
+    var empty = $('#schedule-empty');
+    var kw = ($('#schedule-search').value || '').trim().toLowerCase();
+    var list = state.schedules.filter(function (s) {
+      return !kw || (s.name || '').toLowerCase().indexOf(kw) >= 0;
+    });
+    list.sort(function (a, b) {
+      var ta = Date.parse(a.time || ''), tb = Date.parse(b.time || '');
+      if (isNaN(ta)) ta = 0;
+      if (isNaN(tb)) tb = 0;
+      return ta - tb;
+    });
+    $('#schedule-count').textContent = state.schedules.length;
+    empty.hidden = list.length > 0;
+    tbody.innerHTML = '';
+    list.forEach(function (s) {
+      var tr = document.createElement('tr');
+      tr.innerHTML = [
+        '<td class="col-seq">' + (s.seq || '-') + '</td>',
+        '<td>' + esc(s.name || '-') + '</td>',
+        '<td class="col-date">' + fmtDate(s.time) + '</td>',
+        '<td>' + esc(s.place || '-') + '</td>',
+        '<td class="col-note">' + esc(s.note || '-') + '</td>',
+        '<td class="row-actions">' +
+          '<button class="btn sm" data-act="edit-sch" data-id="' + s.id + '">编辑</button>' +
+          '<button class="btn sm danger" data-act="del-sch" data-id="' + s.id + '">删除</button>' +
+        '</td>'
+      ].join('');
+      tbody.appendChild(tr);
+      tr.querySelector('[data-act="edit-sch"]').onclick = function () { openScheduleModal(s.id); };
+      tr.querySelector('[data-act="del-sch"]').onclick = function () {
+        if (confirm('确定删除「' + (s.name || '未命名') + '」的面试安排？')) {
+          state.schedules = state.schedules.filter(function (x) { return x.id !== s.id; });
+          Store.saveSchedules(state.schedules);
+          renderScheduleTable();
+        }
+      };
+    });
+  }
+
+  function openScheduleModal(id) {
+    var s = null;
+    if (id) {
+      for (var i = 0; i < state.schedules.length; i++) {
+        if (state.schedules[i].id === id) { s = state.schedules[i]; break; }
+      }
+    }
+    scheduleEditingId = s ? s.id : null;
+    $('#schedule-modal').hidden = false;
+    $('#schedule-modal-title').textContent = s ? '编辑面试安排 - ' + (s.name || '') : '新建面试安排';
+    $('#s-name').value = s ? s.name : '';
+    $('#s-time').value = s ? (s.time || '') : '';
+    $('#s-place').value = s ? s.place : '';
+    $('#s-note').value = s ? s.note : '';
+    $('#s-name').focus();
+  }
+
+  function saveSchedule() {
+    var name = $('#s-name').value.trim();
+    var time = $('#s-time').value;
+    if (!name) { alert('请填写面试人姓名。'); $('#s-name').focus(); return; }
+    if (!time) { alert('请选择面试时间。'); $('#s-time').focus(); return; }
+    var s = null;
+    for (var i = 0; i < state.schedules.length; i++) {
+      if (state.schedules[i].id === scheduleEditingId) { s = state.schedules[i]; break; }
+    }
+    if (s) {
+      s.name = name;
+      s.time = time;
+      s.place = $('#s-place').value.trim();
+      s.note = $('#s-note').value.trim();
+      s.updatedAt = new Date().toISOString();
+    } else {
+      state.schedules.push(Store.newSchedule({
+        name: name,
+        time: time,
+        place: $('#s-place').value.trim(),
+        note: $('#s-note').value.trim()
+      }));
+    }
+    Store.saveSchedules(state.schedules);
+    $('#schedule-modal').hidden = true;
+    renderScheduleTable();
   }
 
   /* ================= 弹窗通用 ================= */
@@ -1510,7 +1500,7 @@
     state.candidates = state.candidates.concat(base).concat(dupPair);
     persist();
     refreshDup();
-    alert('已加载示例数据（' + state.candidates.length + ' 人）。含 1 组正文雷同（周敏 / 吴杰）与 1 组同名同手机号（周敏 / 周敏），请到「查重分析」页查看。');
+    alert('已加载示例数据（' + state.candidates.length + ' 人）。含 1 组正文雷同（周敏 / 吴杰）与 1 组同名同手机号（周敏 / 周敏），已自动标记，可在简历库中查看「疑似重复」标识。');
   }
 
   /* ================= 登录 / 角色视图 ================= */
@@ -1571,7 +1561,7 @@
   /* ================= 渲染入口 ================= */
   function renderAll() {
     renderResumeTable();
-    renderDuplicates();
+    renderScheduleTable();
     renderKanban();
   }
 
@@ -1640,20 +1630,16 @@
       }
     };
 
-    $('#btn-run-dup').onclick = function () {
-      if (state.candidates.length < 2) { alert('至少需要 2 封简历才能查重。'); return; }
-      runDuplicates();
-      alert('查重完成，请查看下方结果。');
-    };
-
     $('#btn-add-interview').onclick = addInterviewRecord;
+    $('#btn-new-schedule').onclick = function () { openScheduleModal(null); };
+    $('#btn-save-schedule').onclick = saveSchedule;
+    $('#schedule-search').oninput = renderScheduleTable;
 
     $('#threshold-range').oninput = function () {
       var v = Number(this.value);
       $('#threshold-val').textContent = v + '%';
       state.settings.threshold = v;
       Store.saveSettings(state.settings);
-      renderMatrix();
       if (thTimer) clearTimeout(thTimer);
       thTimer = setTimeout(function () {
         if (state.dup.length) runDuplicates();
