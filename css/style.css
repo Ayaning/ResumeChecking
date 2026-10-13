@@ -130,9 +130,7 @@ main { max-width: 1200px; margin: 24px auto; padding: 0 16px; }
 
 .col-seq { width: 56px; text-align: right; white-space: nowrap; font-variant-numeric: tabular-nums; color: var(--muted); }
 .table th.col-seq { text-align: right; }
-.col-check { width: 34px; }
 .col-actions { white-space: nowrap; }
-input[type=checkbox] { accent-color: var(--primary, #3a7bd5); cursor: pointer; }
 
 .col-date { white-space: nowrap; font-variant-numeric: tabular-nums; color: var(--muted); font-size: 12.5px; }
 .table th.sortable { cursor: pointer; user-select: none; }
