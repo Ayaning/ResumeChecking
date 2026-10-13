@@ -79,7 +79,6 @@
 
   var editingId = null;
   var scheduleEditingId = null;
-  var scheduleSel = {};   /* 已勾选的行 id -> true；勾选状态跨重渲染保留 */
   var ivCandidateId = null;
   var reportCandidateId = null;
   var ndTimer = null;   // 录入弹窗实时查重防抖
@@ -967,13 +966,11 @@
       return !kw || (s.name || '').toLowerCase().indexOf(kw) >= 0;
     });
     $('#schedule-count').textContent = state.schedules.length;
-    $('#sch-check-all').checked = list.length > 0 && Object.keys(scheduleSel).length === list.length;
     empty.hidden = list.length > 0;
     tbody.innerHTML = '';
     list.forEach(function (s) {
       var tr = document.createElement('tr');
       tr.innerHTML = [
-        '<td class="col-check"><input type="checkbox" data-check="' + s.id + '"' + (scheduleSel[s.id] ? ' checked' : '') + '></td>',
         '<td class="col-seq">' + (s.seq || '-') + '</td>',
         '<td><input class="input name-input" data-act="s-name" data-id="' + s.id + '" value="' + esc(s.name || '') + '" placeholder="面试人姓名"></td>',
         '<td><select class="input select" data-act="s-position" data-id="' + s.id + '">' + schedulePositionOptionsHtml(s.position || '') + '</select></td>',
@@ -984,12 +981,6 @@
       ].join('');
       tbody.appendChild(tr);
 
-      var ck = tr.querySelector('[data-check]');
-      ck.onchange = function () {
-        if (ck.checked) scheduleSel[s.id] = true; else delete scheduleSel[s.id];
-        $('#sch-check-all').checked = Object.keys(scheduleSel).length === list.length;
-      };
-
       tr.querySelector('[data-copy]').onclick = function () {
         copyScheduleRows([s.id]);
       };
@@ -997,7 +988,6 @@
       tr.querySelector('[data-del]').onclick = function () {
         if (confirm('确定删除「' + (s.name || '未命名') + '」的面试安排？')) {
           state.schedules = state.schedules.filter(function (x) { return x.id !== s.id; });
-          delete scheduleSel[s.id];
           Store.saveSchedules(state.schedules);
           renderScheduleTable();
         }
@@ -1127,18 +1117,11 @@
         note: src.note
       });
       state.schedules.push(copy);
-      delete scheduleSel[copy.id];
       added++;
     });
     if (!added) return;
     Store.saveSchedules(state.schedules);
     renderScheduleTable();
-  }
-
-  function copySelectedSchedules() {
-    var ids = Object.keys(scheduleSel);
-    if (!ids.length) { alert('请先勾选要复制的面试安排。'); return; }
-    copyScheduleRows(ids);
   }
 
   /* ---------- Excel 导出 ---------- */
@@ -1882,15 +1865,6 @@
     $('#btn-import-schedule').onclick = function () { $('#sch-import-file').click(); };
     $('#sch-import-file').onchange = function () {
       if (this.files.length) { importScheduleFile(this.files[0]); this.value = ''; }
-    };
-    $('#btn-copy-selected').onclick = copySelectedSchedules;
-    $('#sch-check-all').onchange = function () {
-      if (this.checked) {
-        sortSchedules(state.schedules).forEach(function (s) { scheduleSel[s.id] = true; });
-      } else {
-        scheduleSel = {};
-      }
-      renderScheduleTable();
     };
 
     $('#threshold-range').oninput = function () {
