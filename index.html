@@ -35,7 +35,7 @@
   </div>
   <nav class="tabs">
     <button class="tab active" data-tab="resumes">简历库</button>
-    <button class="tab" data-tab="duplicate">查重分析</button>
+    <button class="tab" data-tab="schedule">面试安排</button>
     <button class="tab" data-tab="tracking">筛选与面试</button>
     <button class="tab" data-tab="settings">设置</button>
   </nav>
@@ -126,48 +126,41 @@
     <div class="user-upload-tip"><p>说明：普通用户仅有上传权限，无法查看、修改或导出简历库中的任何数据。</p></div>
   </section>
 
-  <!-- ============ 查重分析 ============ -->
-  <section id="tab-duplicate" class="panel">
+  <!-- ============ 面试安排 ============ -->
+  <section id="tab-schedule" class="panel">
     <div class="panel-head">
       <div class="panel-title">
-        <h2>查重分析</h2>
-        <p>基于字符 n-gram 相似度计算简历两两之间的重复程度，阈值可在设置中调整（默认 70%）。</p>
+        <h2>面试安排 <span class="count-badge" id="schedule-count">0</span></h2>
+        <p>安排面试，记录面试人姓名、时间、地点与备注。</p>
       </div>
       <div class="panel-actions">
-        <button class="btn primary" id="btn-run-dup">运行查重</button>
+        <button class="btn primary" id="btn-new-schedule">+ 新建面试安排</button>
       </div>
     </div>
+    <p class="hint" id="schedule-status" hidden></p>
 
-    <div class="summary-cards">
-      <div class="card"><div class="card-num" id="sum-total">-</div><div class="card-label">参与查重</div></div>
-      <div class="card"><div class="card-num" id="sum-dup">-</div><div class="card-label">疑似重复对</div></div>
-      <div class="card"><div class="card-num" id="sum-dup-cand">-</div><div class="card-label">涉重候选人</div></div>
-      <div class="card"><div class="card-num" id="sum-max">-</div><div class="card-label">最高相似度</div></div>
+    <div class="toolbar">
+      <input type="search" id="schedule-search" class="input search" placeholder="搜索面试人姓名...">
     </div>
 
-    <div class="panel-title sub-title"><h3>重复对详情</h3></div>
     <div class="table-wrap">
-      <table class="table" id="dup-table">
+      <table class="table" id="schedule-table">
         <thead>
           <tr>
-            <th>相似度</th>
-            <th>候选人 A</th>
-            <th>候选人 B</th>
-            <th>结果</th>
-            <th>共享内容片段</th>
-            <th>简历</th>
+            <th class="col-seq">编号</th>
+            <th>面试人姓名</th>
+            <th class="col-date">时间</th>
+            <th>地点</th>
+            <th>备注</th>
+            <th>操作</th>
           </tr>
         </thead>
-        <tbody id="dup-tbody"></tbody>
+        <tbody id="schedule-tbody"></tbody>
       </table>
-      <p class="muted dup-cap" id="dup-cap" hidden></p>
-      <div class="empty" id="dup-empty" hidden>
-        <p>尚未运行查重。请先录入至少两封简历后点击「运行查重」。</p>
+      <div class="empty" id="schedule-empty" hidden>
+        <p>暂无面试安排。点击「+ 新建面试安排」开始。</p>
       </div>
     </div>
-
-    <div class="panel-title sub-title"><h3>相似度总览矩阵</h3></div>
-    <div class="matrix-wrap" id="matrix-wrap"></div>
   </section>
 
   <!-- ============ 筛选与面试 ============ -->
@@ -277,6 +270,28 @@
     <div class="modal-foot">
       <button class="btn" data-close="interview-modal">关闭</button>
       <button class="btn primary" id="btn-add-interview">添加记录</button>
+    </div>
+  </div>
+</div>
+
+<!-- ============ 面试安排弹窗 ============ -->
+<div class="modal-mask" id="schedule-modal" hidden>
+  <div class="modal">
+    <div class="modal-head">
+      <h3 id="schedule-modal-title">新建面试安排</h3>
+      <button class="modal-close" data-close="schedule-modal">&times;</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-grid">
+        <label>面试人姓名 *<input id="s-name" class="input" placeholder="张三" autocomplete="off"></label>
+        <label>面试时间 *<input id="s-time" class="input" type="datetime-local"></label>
+        <label>面试地点<input id="s-place" class="input" placeholder="如：3 楼会议室 A"></label>
+      </div>
+      <label>备注（最多 500 字）<textarea id="s-note" class="input textarea" rows="3" maxlength="500" placeholder="面试官、注意事项等..."></textarea></label>
+    </div>
+    <div class="modal-foot">
+      <button class="btn" data-close="schedule-modal">取消</button>
+      <button class="btn primary" id="btn-save-schedule">保存</button>
     </div>
   </div>
 </div>
