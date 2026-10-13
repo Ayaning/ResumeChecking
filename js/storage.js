@@ -3,6 +3,7 @@
 
   var KEY_CANDIDATES = 'rds_candidates_v1';
   var KEY_SETTINGS = 'rds_settings_v1';
+  var KEY_SCHEDULES = 'rds_schedules_v1';
 
   var DEFAULT_STATUS = 'pending';
 
@@ -302,6 +303,41 @@
     return (t / 1024).toFixed(1);
   }
 
+  /* ============ 候选人面试安排（本地存储） ============ */
+  function newSchedule(data) {
+    var now = new Date().toISOString();
+    return {
+      id: data.id || uid(),
+      seq: Number(data.seq) || 0,
+      name: (data.name || '').trim(),
+      time: data.time || '',
+      place: (data.place || '').trim(),
+      note: (data.note || '').trim(),
+      createdAt: data.createdAt || now,
+      updatedAt: now
+    };
+  }
+
+  function loadSchedules() {
+    var out = [];
+    try {
+      var raw = localStorage.getItem(KEY_SCHEDULES);
+      if (raw) {
+        var arr = JSON.parse(raw);
+        if (Array.isArray(arr)) out = arr.map(newSchedule);
+      }
+    } catch (e) { console.error('读取本地面试安排失败', e); }
+    return out;
+  }
+
+  function saveSchedules(list) {
+    (list || []).forEach(function (s, i) { s.seq = i + 1; });
+    try {
+      localStorage.setItem(KEY_SCHEDULES, JSON.stringify(list || []));
+    } catch (e) { console.error('写入本地面试安排失败', e); }
+    return list;
+  }
+
   /* ============ 原始附件（Supabase Storage） ============ */
   function bucketName() {
     return (global.APP_CONFIG && global.APP_CONFIG.SUPABASE_BUCKET) || 'Resumes';
@@ -338,6 +374,9 @@
     saveSettings: saveSettings,
     storageSize: storageSize,
     uid: uid,
+    newSchedule: newSchedule,
+    loadSchedules: loadSchedules,
+    saveSchedules: saveSchedules,
     init: init,
     refresh: refresh,
     appendRemote: appendRemote,
