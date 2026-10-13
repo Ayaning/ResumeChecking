@@ -958,6 +958,7 @@
       tr.innerHTML = [
         '<td class="col-seq">' + (s.seq || '-') + '</td>',
         '<td><input class="input name-input" data-act="s-name" data-id="' + s.id + '" value="' + esc(s.name || '') + '" placeholder="面试人姓名"></td>',
+        '<td><input class="input" data-act="s-position" data-id="' + s.id + '" value="' + esc(s.position || '') + '" placeholder="面试职位"></td>',
         '<td><input class="input" type="datetime-local" data-act="s-time" data-id="' + s.id + '" value="' + esc(s.time || '') + '"></td>',
         '<td><input class="input" data-act="s-place" data-id="' + s.id + '" value="' + esc(s.place || '') + '" placeholder="面试地点"></td>',
         '<td class="col-note"><textarea class="input note-input" data-act="s-note" data-id="' + s.id + '" rows="2" maxlength="500" placeholder="备注">' + esc(s.note || '') + '</textarea></td>',
@@ -986,6 +987,14 @@
       timeInp.addEventListener('change', function () { saveScheduleField(timeInp, 'time', timeOrig, false); });
       timeInp.addEventListener('keydown', function (e) {
         if (e.key === 'Escape') { timeInp.value = timeOrig; timeInp.blur(); }
+      });
+
+      var posInp = tr.querySelector('[data-act="s-position"]');
+      var posOrig = posInp.value;
+      posInp.addEventListener('blur', function () { saveScheduleField(posInp, 'position', posOrig, false); });
+      posInp.addEventListener('keydown', function (e) {
+        if (e.key === 'Enter') { e.preventDefault(); posInp.blur(); }
+        if (e.key === 'Escape') { posInp.value = posOrig; posInp.blur(); }
       });
 
       var placeInp = tr.querySelector('[data-act="s-place"]');
@@ -1041,6 +1050,7 @@
     $('#schedule-modal').hidden = false;
     $('#schedule-modal-title').textContent = s ? '编辑面试安排 - ' + (s.name || '') : '新建面试安排';
     $('#s-name').value = s ? s.name : '';
+    $('#s-position').value = s ? s.position : '';
     $('#s-time').value = s ? (s.time || '') : '';
     $('#s-place').value = s ? s.place : '';
     $('#s-note').value = s ? s.note : '';
@@ -1058,6 +1068,7 @@
     }
     if (s) {
       s.name = name;
+      s.position = $('#s-position').value.trim();
       s.time = time;
       s.place = $('#s-place').value.trim();
       s.note = $('#s-note').value.trim();
@@ -1065,6 +1076,7 @@
     } else {
       state.schedules.push(Store.newSchedule({
         name: name,
+        position: $('#s-position').value.trim(),
         time: time,
         place: $('#s-place').value.trim(),
         note: $('#s-note').value.trim()
