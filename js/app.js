@@ -45,6 +45,9 @@
   /* 应聘岗位可选项：表格编辑、录入表单、普通用户上传共用同一份 */
   var POSITIONS = ['功能测试', '自动化测试', 'AI测试', '前端开发', '后端开发'];
 
+  /* 面试职位可选项（面试安排） */
+  var SCHEDULE_POSITIONS = ['自动化', 'AI测试', '功能', '前端', '后端', '实习生'];
+
   /* 账号体系：管理员可查看全部功能；普通用户登录后仅可使用「上传简历」 */
   var ACCOUNTS = {
     admin: { pass: '2610', role: 'admin', label: '管理员' },
@@ -134,6 +137,15 @@
   function positionSelectHtml(c) {
     return '<select class="input select position-select" data-act="position" data-id="' + c.id + '">' +
       positionOptionsHtml(c.position || '') + '</select>';
+  }
+
+  /* 面试职位下拉：表格内联编辑、弹窗共用。旧值不在预设列表时保留，避免数据丢失 */
+  function schedulePositionOptionsHtml(cur) {
+    var list = SCHEDULE_POSITIONS.slice();
+    if (cur && list.indexOf(cur) < 0) list.unshift(cur);
+    return ['<option value="">未填写</option>'].concat(list.map(function (p) {
+      return '<option value="' + esc(p) + '"' + (p === cur ? ' selected' : '') + '>' + esc(p) + '</option>';
+    })).join('');
   }
 
   /* 备注单元格：可编辑，最多 500 字，显示已填字数 */
@@ -958,7 +970,7 @@
       tr.innerHTML = [
         '<td class="col-seq">' + (s.seq || '-') + '</td>',
         '<td><input class="input name-input" data-act="s-name" data-id="' + s.id + '" value="' + esc(s.name || '') + '" placeholder="面试人姓名"></td>',
-        '<td><input class="input" data-act="s-position" data-id="' + s.id + '" value="' + esc(s.position || '') + '" placeholder="面试职位"></td>',
+        '<td><select class="input select" data-act="s-position" data-id="' + s.id + '">' + schedulePositionOptionsHtml(s.position || '') + '</select></td>',
         '<td><input class="input" type="datetime-local" data-act="s-time" data-id="' + s.id + '" value="' + esc(s.time || '') + '"></td>',
         '<td><input class="input" data-act="s-place" data-id="' + s.id + '" value="' + esc(s.place || '') + '" placeholder="面试地点"></td>',
         '<td class="col-note"><textarea class="input note-input" data-act="s-note" data-id="' + s.id + '" rows="2" maxlength="500" placeholder="备注">' + esc(s.note || '') + '</textarea></td>',
@@ -989,13 +1001,9 @@
         if (e.key === 'Escape') { timeInp.value = timeOrig; timeInp.blur(); }
       });
 
-      var posInp = tr.querySelector('[data-act="s-position"]');
-      var posOrig = posInp.value;
-      posInp.addEventListener('blur', function () { saveScheduleField(posInp, 'position', posOrig, false); });
-      posInp.addEventListener('keydown', function (e) {
-        if (e.key === 'Enter') { e.preventDefault(); posInp.blur(); }
-        if (e.key === 'Escape') { posInp.value = posOrig; posInp.blur(); }
-      });
+      var posSel = tr.querySelector('[data-act="s-position"]');
+      var posOrig = posSel.value;
+      posSel.addEventListener('change', function () { saveScheduleField(posSel, 'position', posOrig, false); });
 
       var placeInp = tr.querySelector('[data-act="s-place"]');
       var placeOrig = placeInp.value;
@@ -1050,7 +1058,7 @@
     $('#schedule-modal').hidden = false;
     $('#schedule-modal-title').textContent = s ? '编辑面试安排 - ' + (s.name || '') : '新建面试安排';
     $('#s-name').value = s ? s.name : '';
-    $('#s-position').value = s ? s.position : '';
+    $('#s-position').innerHTML = schedulePositionOptionsHtml(s ? s.position : '');
     $('#s-time').value = s ? (s.time || '') : '';
     $('#s-place').value = s ? s.place : '';
     $('#s-note').value = s ? s.note : '';
