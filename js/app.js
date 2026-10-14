@@ -79,6 +79,7 @@
 
   var editingId = null;
   var scheduleEditingId = null;
+  var scheduleSort = { key: 'seq', dir: 1 };   /* key: 'seq' | 'time'；dir: 1 升序, -1 降序 */
   var ivCandidateId = null;
   var reportCandidateId = null;
   var ndTimer = null;   // 录入弹窗实时查重防抖
@@ -948,7 +949,7 @@
   }
 
   /* ================= 候选人面试安排 ================= */
-  /* 面试安排默认按编号升序（编号 == 列表序号，由 saveSchedules 统一重排） */
+  /* 基础顺序：按编号升序（编号由 saveSchedules 统一重排为 1..N） */
   function sortSchedules(list) {
     return list.slice().sort(function (a, b) {
       var sa = Number(a.seq) || 0, sb = Number(b.seq) || 0;
@@ -957,21 +958,40 @@
     });
   }
 
+  /* 展示顺序：默认按编号；选择时间排序时按面试时间升/降序（无时间行始终置底） */
+  function orderedScheduleList() {
+    if (scheduleSort.key !== 'time') return sortSchedules(state.schedules);
+    var withT = [], noT = [];
+    state.schedules.forEach(function (s) {
+      var t = Date.parse(s.time || '');
+      if (s.time && !isNaN(t)) withT.push(s); else noT.push(s);
+    });
+    var dir = scheduleSort.dir === -1 ? -1 : 1;
+    withT.sort(function (a, b) {
+      var d = Date.parse(a.time) - Date.parse(b.time);
+      if (d !== 0) return d * dir;
+      return (Number(a.seq) || 0) - (Number(b.seq) || 0);
+    });
+    return withT.concat(noT);
+  }
+
   function renderScheduleTable() {
     var tbody = $('#schedule-tbody');
     if (!tbody) return;
     var empty = $('#schedule-empty');
     var kw = ($('#schedule-search').value || '').trim().toLowerCase();
-    var list = sortSchedules(state.schedules).filter(function (s) {
+    var list = orderedScheduleList().filter(function (s) {
       return !kw || (s.name || '').toLowerCase().indexOf(kw) >= 0;
     });
     $('#schedule-count').textContent = state.schedules.length;
+    var indEl = $('#sort-ind-sch-time');
+    if (indEl) indEl.textContent = scheduleSort.key === 'time' ? (scheduleSort.dir === -1 ? '▼' : '▲') : '↕';
     empty.hidden = list.length > 0;
     tbody.innerHTML = '';
-    list.forEach(function (s) {
+    list.forEach(function (s, idx) {
       var tr = document.createElement('tr');
       tr.innerHTML = [
-        '<td class="col-seq">' + (s.seq || '-') + '</td>',
+        '<td class="col-seq">' + (idx + 1) + '</td>',
         '<td><input class="input name-input" data-act="s-name" data-id="' + s.id + '" value="' + esc(s.name || '') + '" placeholder="面试人姓名"></td>',
         '<td><select class="input select" data-act="s-position" data-id="' + s.id + '">' + schedulePositionOptionsHtml(s.position || '') + '</select></td>',
         '<td><input class="input" type="datetime-local" data-act="s-time" data-id="' + s.id + '" value="' + esc(s.time || '') + '"></td>',
@@ -1139,8 +1159,8 @@
   function exportScheduleXlsx() {
     if (typeof XLSX === 'undefined') { alert('Excel 组件未加载，请检查 js/vendor/xlsx.full.min.js。'); return; }
     var header = ['编号', '面试人姓名', '面试职位', '面试时间', '面试地点', '备注'];
-    var rows = sortSchedules(state.schedules).map(function (s) {
-      return [s.seq || '', s.name || '', s.position || '', fmtScheduleTime(s.time), s.place || '', s.note || ''];
+    var rows = orderedScheduleList().map(function (s, i) {
+      return [i + 1, s.name || '', s.position || '', fmtScheduleTime(s.time), s.place || '', s.note || ''];
     });
     var aoa = [header].concat(rows);
     var ws = XLSX.utils.aoa_to_sheet(aoa);
@@ -1865,6 +1885,13 @@
     $('#btn-import-schedule').onclick = function () { $('#sch-import-file').click(); };
     $('#sch-import-file').onchange = function () {
       if (this.files.length) { importScheduleFile(this.files[0]); this.value = ''; }
+    };
+
+    if ($('#th-sch-time')) $('#th-sch-time').onclick = function () {
+      if (scheduleSort.key !== 'time') { scheduleSort.key = 'time'; scheduleSort.dir = 1; }
+      else if (scheduleSort.dir === 1) { scheduleSort.dir = -1; }
+      else { scheduleSort.key = 'seq'; scheduleSort.dir = 1; }
+      renderScheduleTable();
     };
 
     $('#threshold-range').oninput = function () {
