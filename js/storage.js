@@ -71,7 +71,7 @@
    * 共用云端同一份数据；否则回退到 localStorage，保持单机可用。
    */
   var remoteReady = false;
-  var stateCache = { candidates: [], settings: { threshold: 70 } };
+  var stateCache = { candidates: [], settings: { threshold: 70 }, schedules: [] };
   var client = null;
 
   function isRemote() { return remoteReady; }
@@ -98,12 +98,20 @@
         if (s && typeof s.threshold === 'number') stateCache.settings = s;
       }
     } catch (e) { console.error(e); }
+    try {
+      var raw3 = localStorage.getItem(KEY_SCHEDULES);
+      if (raw3) {
+        var sa = JSON.parse(raw3);
+        if (Array.isArray(sa)) stateCache.schedules = sa;
+      }
+    } catch (e) { console.error(e); }
   }
 
   function saveLocal() {
     try {
       localStorage.setItem(KEY_CANDIDATES, JSON.stringify(stateCache.candidates));
       localStorage.setItem(KEY_SETTINGS, JSON.stringify(stateCache.settings));
+      localStorage.setItem(KEY_SCHEDULES, JSON.stringify(stateCache.schedules));
     } catch (e) { console.error('写入本地数据失败', e); }
   }
 
@@ -164,17 +172,33 @@
   /* 将内存中的整份数据同步到云端：更新/新增所有行，删除云端多出来的行 */
   function pushRemote() {
     if (!remoteReady || !client) return;
-    var rows = stateCache.candidates.map(appToRow);
-    var ids = rows.map(function (r) { return r.id; });
     var jobs = [];
+    var rows = stateCache.candidates.map(appToRow);
     if (rows.length) {
       jobs.push(client.from('candidates').upsert(rows).then(noop, function (e) { console.error('云端保存失败', e); }));
-      jobs.push(client.from('candidates').delete()
-        .not('id', 'in', '(' + ids.map(function (i) { return '"' + i + '"'; }).join(',') + ')')
-        .then(noop, function (e) { console.error('云端删除失败', e); }));
     } else {
       jobs.push(client.from('candidates').delete().neq('id', '').then(noop, function (e) { console.error(e); }));
     }
+    try {
+      var sRows = stateCache.schedules.map(function (s) {
+        return {
+          id: s.id,
+          seq: s.seq,
+          name: s.name || '',
+          position: s.position || '',
+          time: s.time || '',
+          place: s.place || '',
+          note: s.note || '',
+          created_at: s.createdAt,
+          updated_at: s.updatedAt || new Date().toISOString()
+        };
+      });
+      if (sRows.length) {
+        jobs.push(client.from('schedules').upsert(sRows).then(noop, function (e) { console.error('云端日程保存失败', e); }));
+      } else {
+        jobs.push(client.from('schedules').delete().neq('id', '').then(noop, function (e) { console.error(e); }));
+      }
+    } catch (e) {}
     jobs.push(client.from('settings').upsert({ id: 1, threshold: stateCache.settings.threshold })
       .then(noop, function (e) { console.error('云端设置保存失败', e); }));
     Promise.all(jobs);
@@ -204,19 +228,34 @@
 
     return Promise.all([
       client.from('candidates').select('*'),
-      client.from('settings').select('*').eq('id', 1).maybeSingle()
+      client.from('settings').select('*').eq('id', 1).maybeSingle(),
+      client.from('schedules').select('*')
     ]).then(function (r) {
       if (r[0].error) throw r[0].error;
       remoteReady = true;
       var cands = (r[0].data || []).map(rowToApp);
-      var thr = (r[1].data && typeof r[1].data.threshold === 'number') ? r[1].data.threshold : 70;
-      if (!cands.length) {
-        /* 云端为空时，把本机历史数据迁移上去，避免开启共享后「数据消失」 */
+      var thr = (r[1] && r[1].data && typeof r[1].data.threshold === 'number') ? r[1].data.threshold : 70;
+      var sc = [];
+      try { if (r[2] && !r[2].error) sc = r[2].data || []; } catch (e) {}
+      if (!cands.length && !sc.length) {
         loadLocalInto();
-        if (stateCache.candidates.length) { saveLocal(); pushRemote(); return true; }
+        if (stateCache.candidates.length || stateCache.schedules.length) { saveLocal(); pushRemote(); return true; }
       }
       stateCache.candidates = cands;
       stateCache.settings = { threshold: thr };
+      stateCache.schedules = (sc || []).map(function (s) {
+        return {
+          id: s.id,
+          seq: s.seq,
+          name: s.name || '',
+          position: s.position || '',
+          time: s.time || '',
+          place: s.place || '',
+          note: s.note || '',
+          createdAt: s.created_at,
+          updatedAt: s.updated_at || s.created_at
+        };
+      });
       saveLocal();
       return true;
     }).catch(function (e) {
@@ -231,12 +270,28 @@
     if (!remoteReady || !client) return Promise.resolve(false);
     return Promise.all([
       client.from('candidates').select('*'),
-      client.from('settings').select('*').eq('id', 1).maybeSingle()
+      client.from('settings').select('*').eq('id', 1).maybeSingle(),
+      client.from('schedules').select('*')
     ]).then(function (r) {
       if (r[0].error) throw r[0].error;
       stateCache.candidates = (r[0].data || []).map(rowToApp);
-      var thr = (r[1].data && typeof r[1].data.threshold === 'number') ? r[1].data.threshold : stateCache.settings.threshold;
+      var thr = (r[1] && r[1].data && typeof r[1].data.threshold === 'number') ? r[1].data.threshold : stateCache.settings.threshold;
       stateCache.settings = { threshold: thr };
+      var sc = [];
+      try { if (r[2] && !r[2].error) sc = r[2].data || []; } catch (e) {}
+      stateCache.schedules = (sc || []).map(function (s) {
+        return {
+          id: s.id,
+          seq: s.seq,
+          name: s.name || '',
+          position: s.position || '',
+          time: s.time || '',
+          place: s.place || '',
+          note: s.note || '',
+          createdAt: s.created_at,
+          updatedAt: s.updated_at || s.created_at
+        };
+      });
       saveLocal();
       return true;
     }).catch(function (e) { console.error('刷新云端数据失败', e); return false; });
@@ -321,21 +376,27 @@
 
   function loadSchedules() {
     var out = [];
+    var src = stateCache.schedules.length ? stateCache.schedules : [];
     try {
-      var raw = localStorage.getItem(KEY_SCHEDULES);
-      if (raw) {
-        var arr = JSON.parse(raw);
-        if (Array.isArray(arr)) out = arr.map(newSchedule);
-      }
-    } catch (e) { console.error('读取本地面试安排失败', e); }
+      src.forEach(function (d) { out.push(newSchedule(d)); });
+    } catch (e) { }
+    if (!out.length) {
+      try {
+        var raw = localStorage.getItem(KEY_SCHEDULES);
+        if (raw) {
+          var arr = JSON.parse(raw);
+          if (Array.isArray(arr)) out = arr.map(newSchedule);
+        }
+      } catch (e) { console.error('读取本地面试安排失败', e); }
+    }
     return out;
   }
 
   function saveSchedules(list) {
     (list || []).forEach(function (s, i) { s.seq = i + 1; });
-    try {
-      localStorage.setItem(KEY_SCHEDULES, JSON.stringify(list || []));
-    } catch (e) { console.error('写入本地面试安排失败', e); }
+    stateCache.schedules = (list || []).slice();
+    saveLocal();
+    pushRemote();
     return list;
   }
 

@@ -51,8 +51,29 @@ create policy "anon all candidates" on candidates
 create policy "anon all settings" on settings
   for all to anon using (true) with check (true);
 
--- ============ 鍘熷闄勪欢瀛樺偍锛圫upabase Storage锛?============
--- 1) 鍦ㄦ帶鍒跺彴 Storage 鈫?New bucket 鏂板缓鍚嶄负 resumes 鐨勩€愬叕寮€銆慴ucket锛圥ublic bucket 鎵撳紑锛夈€?-- 2) 鍐嶆墽琛屼笅闈㈢殑绛栫暐锛屽厑璁稿尶鍚嶄笂浼?瑕嗙洊/璇诲彇锛屼緵鍓嶇淇濆瓨涓庨瑙堝師浠躲€?--    锛堣嫢 bucket 宸茶涓?public锛宻elect 閫氬父宸叉斁寮€锛涗笅闈㈢瓥鐣ュ叏閮ㄥ箓绛夛紝鍙斁蹇冩墽琛屻€傦級
+create table if not exists schedules (
+  id         text primary key,
+  seq        int,
+  name       text,
+  position   text,
+  time       text,
+  place      text,
+  note       text,
+  created_at timestamptz default now(),
+  updated_at timestamptz default now()
+);
+
+alter table schedules enable row level security;
+
+drop policy if exists "anon all schedules" on schedules;
+
+create policy "anon all schedules" on schedules
+  for all to anon using (true) with check (true);
+
+-- ============ 原始附件存储（Supabase Storage）============
+-- 1) 在控制台 Storage -> New bucket 新建名为 resumes 的【公开】bucket（Public bucket 打开）
+-- 2) 再执行下面的策略，允许匿名上�?覆盖/读取，供前端保存与预览原件
+--    （若 bucket 已设为 public，select 通常已放开；下面策略全部幂等，可放心执行。）
 insert into storage.buckets (id, name, public)
   values ('Resumes', 'Resumes', true)
   on conflict (id) do update set public = true;

@@ -249,8 +249,10 @@
         if (!ok) return;
         state.candidates = Store.loadCandidates();
         state.settings = Store.loadSettings();
+        state.schedules = Store.loadSchedules();
         invalidateTextIdx();
         refreshDup();
+        renderAll();
       });
       return;
     }
@@ -1948,7 +1950,12 @@
       session = (saved && (saved.role === 'admin' || saved.role === 'user')) ? saved : null;
     } catch (e) { session = null; }
 
-    /* 先加载共享数据（服务器 / 隧道），失败则回退本地，再渲染界面 */
+    /* 先绑定事件与登录界面：不等待云端数据，登录按钮立即可用 */
+    applySettings();
+    bindEvents();
+    applyRoleView();
+
+    /* 再加载共享数据（服务器 / 隧道），失败则回退本地，加载完重绘界面 */
     Store.init().then(function () {
       state.candidates = Store.loadCandidates();
       state.settings = Store.loadSettings();
@@ -1961,8 +1968,6 @@
       });
       if (migrated) Store.saveCandidates(state.candidates);
       applySettings();
-      bindEvents();
-      applyRoleView();
 
       if (!session) return;                /* 未登录：只显示登录页 */
       if (session.role === 'user') return; /* 普通用户：仅上传，简历库数据已加载用于比对 */
