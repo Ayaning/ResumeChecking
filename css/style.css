@@ -13,6 +13,8 @@
 
 * { box-sizing: border-box; }
 
+html, body { overflow-x: hidden; }
+
 body {
   margin: 0;
   font-family: "Segoe UI", "Microsoft YaHei", "PingFang SC", system-ui, sans-serif;
@@ -119,16 +121,35 @@ main { max-width: 1200px; margin: 24px auto; padding: 0 16px; }
   background: var(--card); border: 1px solid var(--border);
   border-radius: var(--radius); overflow: auto; box-shadow: var(--shadow);
 }
-.table { width: 100%; border-collapse: collapse; min-width: 760px; }
+.table { width: 100%; border-collapse: collapse; table-layout: fixed; }
 .table th, .table td {
   text-align: left; padding: 8px 9px; border-bottom: 1px solid var(--border);
-  vertical-align: top;
+  vertical-align: top; word-break: break-word; overflow-wrap: anywhere;
 }
 .table th { background: #f8fafc; font-size: 12px; color: var(--muted); text-transform: uppercase; letter-spacing: .4px; white-space: nowrap; }
 .table tbody tr:hover { background: #f8fafc; }
 .table tbody tr:last-child td { border-bottom: none; }
 
-.col-seq { width: 56px; text-align: right; white-space: nowrap; font-variant-numeric: tabular-nums; color: var(--muted); }
+/* 固定布局下列宽分配：表格始终占满容器，不出现横向滚动条 */
+#resume-table th:nth-child(1) { width: 52px; }
+#resume-table th:nth-child(2) { width: 12%; }
+#resume-table th:nth-child(3) { width: 12%; }
+#resume-table th:nth-child(4) { width: 13%; }
+#resume-table th:nth-child(5) { width: 10%; }
+#resume-table th:nth-child(6) { width: 11%; }
+#resume-table th:nth-child(8) { width: 12%; }
+
+#schedule-table th:nth-child(1) { width: 52px; }
+#schedule-table th:nth-child(2) { width: 14%; }
+#schedule-table th:nth-child(3) { width: 14%; }
+#schedule-table th:nth-child(4) { width: 16%; }
+#schedule-table th:nth-child(5) { width: 14%; }
+#schedule-table th:nth-child(7) { width: 13%; }
+
+/* 表格内的输入控件随列宽自适应 */
+.table td .input { width: 100%; min-width: 0; max-width: 100%; }
+
+.col-seq { width: 52px; text-align: right; white-space: nowrap; font-variant-numeric: tabular-nums; color: var(--muted); }
 .table th.col-seq { text-align: right; }
 .col-actions { white-space: nowrap; }
 
@@ -137,18 +158,18 @@ main { max-width: 1200px; margin: 24px auto; padding: 0 16px; }
 .table th.sortable:hover { color: var(--primary, #3a7bd5); }
 .sort-ind { color: var(--muted); font-size: 11px; }
 
-.status-select { min-width: 96px; padding: 5px 8px; font-size: 13px; cursor: pointer; }
+.btn { white-space: nowrap; }
+.status-select { min-width: 0; padding: 5px 8px; font-size: 13px; cursor: pointer; }
 .status-select:focus { outline: 2px solid var(--primary, #3a7bd5); outline-offset: 1px; }
 
-.position-select { min-width: 108px; padding: 5px 8px; font-size: 13px; cursor: pointer; }
+.position-select { min-width: 0; padding: 5px 8px; font-size: 13px; cursor: pointer; }
 .position-select:focus { outline: 2px solid var(--primary, #3a7bd5); outline-offset: 1px; }
 
-.col-note { min-width: 220px; }
 .note-input { width: 100%; min-height: 46px; padding: 6px 8px; font-size: 13px; line-height: 1.45; resize: vertical; }
 .note-input:focus { outline: 2px solid var(--primary, #3a7bd5); outline-offset: 1px; }
 .note-count { display: block; margin-top: 3px; font-size: 11px; color: var(--muted); text-align: right; font-variant-numeric: tabular-nums; }
 .cell-main .dup-pill { font-size: 11px; padding: 1px 6px; vertical-align: middle; }
-.name-input { width: 100%; min-width: 88px; max-width: 160px; padding: 4px 6px; font-size: 13px; font-weight: 600; }
+.name-input { width: 100%; min-width: 0; max-width: 100%; padding: 4px 6px; font-size: 13px; font-weight: 600; }
 .name-input:focus { outline: 2px solid var(--primary, #3a7bd5); outline-offset: 1px; }
 .name-input.name-hit { background: #fde047; }
 
@@ -414,4 +435,5 @@ input[type="range"] { flex: 1; min-width: 200px; }
   .two-col { grid-template-columns: 1fr; }
   .info-grid { grid-template-columns: 1fr; }
   .pre { height: 260px; }
+  .table th, .table td { padding: 6px 5px; }
 }
